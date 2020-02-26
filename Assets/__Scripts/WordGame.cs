@@ -24,6 +24,7 @@ public class WordGame : MonoBehaviour
     public Color bigColorDim = new Color(0.8f, 0.8f, 0.8f);
     public Color bigColorSelected = new Color(1f, 0.9f, 0.7f);
     public Vector3 bigLetterCenter = new Vector3(0,-16,0);
+    public Color[] wyrdPalette;
 
     [Header("Set Dynamically")]
     public GameMode mode = GameMode.preGame;
@@ -138,11 +139,15 @@ public class WordGame : MonoBehaviour
 
                 pos = new Vector3(wordArea.x + left + j*letterSize, wordArea.y, 0);
                 pos.y -= (i%numRows) * letterSize;
+                lett.posImmediate = pos + Vector3.up * (20 + i%numRows);
                 lett.pos = pos;
+                lett.timeStart = Time.time + i * 0.05f;
                 go.transform.localScale = Vector3.one*letterSize;
                 wyrd.Add(lett);
             }
             if(showAllWyrds) wyrd.visible = true;
+            //根据长度来给wyrd上色
+            wyrd.color = wyrdPalette[word.Length - WordList.WORD_LENGTH_MIN];
             wyrds.Add(wyrd);
             //如果是numRows(th)，新增一列
             if(i%numRows == numRows - 1) {
@@ -164,7 +169,11 @@ public class WordGame : MonoBehaviour
 
             //把bigLetter的初始位置设为最下方
             pos = new Vector3(0, -100, 0);
+            lett.posImmediate = pos;
             lett.pos = pos;
+            //令bigLetters最后进入
+            lett.timeStart = Time.time + currLevel.subWords.Count * 0.05f;
+            lett.easingCuve = Easing.Sin + "-0.18";    //Bouncy easing
 
             col = bigColorDim;
             lett.color = col;
@@ -255,5 +264,60 @@ public class WordGame : MonoBehaviour
         }
     }
 
-    
+    Letter FindNextLetterByChar(char c) {
+        foreach(Letter ltr in bigLetters) {
+            if(ltr.c == c) {
+                return(ltr);
+            }
+        }
+        return null;
+    }
+
+    public void CheckWord() {
+        string subWord;
+        bool foundTestWord = false;
+
+        List<int> containedWords = new List<int>();
+        for(int i=0; i<currLevel.subWords.Count; i++) {
+            if(wyrds[i].found) {
+                continue;
+            }
+
+            subWord = currLevel.subWords[i];
+            if(string.Equals(testWord, subWord)) {
+                HighlightWyrd(i);
+                ScoreManager.SCORE(wyrds[i], 1);
+                foundTestWord = true;
+            } else if(testWord.Contains(subWord)) {
+                containedWords.Add(i);
+            }
+        }
+        if(foundTestWord) {
+            int numContained = containedWords.Count;
+            int ndx;
+            for(int i=0; i<containedWords.Count; i++) {
+                ndx = numContained - i - 1;   //反向HighLight
+                HighlightWyrd(containedWords[ndx]);
+                ScoreManager.SCORE(wyrds[containedWords[ndx]], i+2);
+            }
+        }
+        ClearBigLettersActive();
+    }
+
+    void HighlightWyrd(int ndx) {
+        wyrds[ndx].found = true;
+        // 颜色变浅
+        wyrds[ndx].color = (wyrds[ndx].color + Color.white)/2f;
+        wyrds[ndx].visible = true;
+    }
+
+    void ClearBigLettersActive() {
+        testWord = "";
+        foreach(Letter ltr in bigLettersActive) {
+            bigLetters.Add(ltr);
+            ltr.color = bigColorDim;
+        }
+        bigLettersActive.Clear();
+        ArrangeBigLetters();
+    }
 }
